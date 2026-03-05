@@ -1,0 +1,22 @@
+{
+  "name": "clawg-mission-control",
+  "version": "0.1.0",
+  "description": "Visual Mission Control for OpenClaw — Slack wizard, live feed, approval rail",
+  "main": "index.ts",
+  "type": "module",
+  "openclaw": {
+    "extensions": ["./index.ts"]
+  },
+  "scripts": {
+    "build:ui": "cd ui && vite build",
+    "dev:ui": "cd ui && vite",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.0.0",
+    "@types/node": "^20.0.0"
+  }
+}

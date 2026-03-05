@@ -1,0 +1,16 @@
+{
+  "id": "mission-control",
+  "name": "Mission Control",
+  "version": "0.1.0",
+  "description": "Visual browser dashboard for OpenClaw — Slack setup wizard, live feed, approval rail. Requires clawg-ui plugin.",
+  "author": "Your Name",
+  "license": "MIT",
+  "peerPlugins": ["clawg-ui"],
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "routePrefix": { "type": "string", "default": "/mission-control" }
+    }
+  }
+}
