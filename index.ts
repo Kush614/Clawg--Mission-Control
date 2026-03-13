@@ -13,7 +13,7 @@ export default function register(api: any) {
     async (event: any) => {
       const toolName = event.toolName;
       if (RISKY_TOOLS.has(toolName?.toLowerCase())) {
-        const approved = await approvalQueue.request(event.callId, toolName, event.params);
+        const approved = await approvalQueue.request(event.toolCallId, toolName, event.params);
         if (!approved) return { block: true, blockReason: "Blocked by Mission Control." };
       }
     },
@@ -24,7 +24,7 @@ export default function register(api: any) {
     "after_tool_call",
     (event: any) => {
       // Resolve any lingering approval entries
-      approvalQueue.resolve(event.callId, true);
+      approvalQueue.resolve(event.toolCallId, true);
     },
     { priority: 10 },
   );
