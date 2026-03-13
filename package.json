@@ -1,5 +1,5 @@
 {
-  "name": "clawg-mission-control",
+  "name": "mission-control",
   "version": "0.1.0",
   "description": "Visual Mission Control for OpenClaw — Slack wizard, live feed, approval rail",
   "main": "index.ts",

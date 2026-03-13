@@ -12,103 +12,159 @@ export function registerRoutes(
   api: any,
   { routePrefix, eventBus }: { routePrefix: string; eventBus: EventBus }
 ) {
-  // ── Serve UI ─────────────────────────────────────────────────────────────
+  // ── Serve UI (prefix match for index + static assets) ──────────────────
 
-  const serveIndex = (_req: any, res: any) => {
-    const p = path.join(UI_DIST, "index.html");
-    if (!fs.existsSync(p)) {
-      res.writeHead(503, { "Content-Type": "text/plain" });
-      res.end("UI not built. Run: npm run build:ui");
-      return;
-    }
-    res.writeHead(200, { "Content-Type": "text/html" });
-    res.end(fs.readFileSync(p));
-  };
+  api.registerHttpRoute({
+    path: routePrefix,
+    auth: "plugin",
+    match: "prefix",
+    handler: async (req: any, res: any) => {
+      if (req.method !== "GET") return false;
 
-  api.registerGatewayHttpHandler("GET", routePrefix, serveIndex);
-  api.registerGatewayHttpHandler("GET", `${routePrefix}/`, serveIndex);
+      const rel = req.url.split("?")[0].replace(routePrefix, "") || "/";
 
-  api.registerGatewayHttpHandler("GET", `${routePrefix}/assets/*`, (req: any, res: any) => {
-    const rel = req.url.replace(routePrefix, "");
-    const filePath = path.join(UI_DIST, rel);
-    if (!fs.existsSync(filePath)) { res.writeHead(404); res.end(); return; }
-    const mime: Record<string, string> = {
-      ".js": "application/javascript", ".css": "text/css",
-      ".svg": "image/svg+xml", ".png": "image/png",
-    };
-    res.writeHead(200, { "Content-Type": mime[path.extname(filePath)] ?? "application/octet-stream" });
-    res.end(fs.readFileSync(filePath));
+      // Serve index.html for the root path
+      if (rel === "/" || rel === "") {
+        const p = path.join(UI_DIST, "index.html");
+        if (!fs.existsSync(p)) {
+          res.writeHead(503, { "Content-Type": "text/plain" });
+          res.end("UI not built. Run: npm run build:ui");
+          return true;
+        }
+        res.writeHead(200, { "Content-Type": "text/html" });
+        res.end(fs.readFileSync(p));
+        return true;
+      }
+
+      // Serve static assets from /assets/*
+      if (rel.startsWith("/assets/")) {
+        const filePath = path.join(UI_DIST, rel);
+        if (!fs.existsSync(filePath)) { res.writeHead(404); res.end(); return true; }
+        const mime: Record<string, string> = {
+          ".js": "application/javascript", ".css": "text/css",
+          ".svg": "image/svg+xml", ".png": "image/png",
+        };
+        res.writeHead(200, { "Content-Type": mime[path.extname(filePath)] ?? "application/octet-stream" });
+        res.end(fs.readFileSync(filePath));
+        return true;
+      }
+
+      return false;
+    },
   });
 
   // ── SSE — approval events only ────────────────────────────────────────────
   // Note: agent events (messages, tool calls) come through clawg-ui via CopilotKit.
   // This SSE stream is only for approval queue events from this plugin.
 
-  api.registerGatewayHttpHandler("GET", `${routePrefix}/events`, (req: any, res: any) => {
-    res.writeHead(200, {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      "Connection": "keep-alive",
-      "Access-Control-Allow-Origin": "*",
-      "X-Accel-Buffering": "no",
-    });
-    res.write(": connected\n\n");
-    const ping = setInterval(() => res.write(": ping\n\n"), 15_000);
-    const unsub = eventBus.subscribe((e) => res.write(`data: ${JSON.stringify(e)}\n\n`));
-    req.on("close", () => { clearInterval(ping); unsub(); });
+  api.registerHttpRoute({
+    path: `${routePrefix}/events`,
+    auth: "plugin",
+    match: "exact",
+    handler: async (req: any, res: any) => {
+      if (req.method !== "GET") return false;
+      res.writeHead(200, {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+        "Access-Control-Allow-Origin": "*",
+        "X-Accel-Buffering": "no",
+      });
+      res.write(": connected\n\n");
+      const ping = setInterval(() => res.write(": ping\n\n"), 15_000);
+      const unsub = eventBus.subscribe((e) => res.write(`data: ${JSON.stringify(e)}\n\n`));
+      req.on("close", () => { clearInterval(ping); unsub(); });
+      return true;
+    },
   });
 
   // ── Approvals ─────────────────────────────────────────────────────────────
 
-  api.registerGatewayHttpHandler("GET", `${routePrefix}/api/approvals`, (_req: any, res: any) => {
-    json(res, approvalQueue.list());
-  });
+  api.registerHttpRoute({
+    path: `${routePrefix}/api/approvals`,
+    auth: "plugin",
+    match: "prefix",
+    handler: async (req: any, res: any) => {
+      const relPath = req.url.split("?")[0].replace(`${routePrefix}/api/approvals`, "") || "/";
 
-  api.registerGatewayHttpHandler("POST", `${routePrefix}/api/approvals/:id/approve`, (req: any, res: any) => {
-    const callId = seg(req.url, -2);
-    json(res, { ok: approvalQueue.resolve(callId, true) });
-  });
+      // GET /api/approvals — list pending
+      if (req.method === "GET" && (relPath === "/" || relPath === "")) {
+        json(res, approvalQueue.list());
+        return true;
+      }
 
-  api.registerGatewayHttpHandler("POST", `${routePrefix}/api/approvals/:id/reject`, (req: any, res: any) => {
-    const callId = seg(req.url, -2);
-    json(res, { ok: approvalQueue.resolve(callId, false) });
+      // POST /api/approvals/:id/approve
+      if (req.method === "POST" && relPath.endsWith("/approve")) {
+        const callId = seg(req.url, -2);
+        json(res, { ok: approvalQueue.resolve(callId, true) });
+        return true;
+      }
+
+      // POST /api/approvals/:id/reject
+      if (req.method === "POST" && relPath.endsWith("/reject")) {
+        const callId = seg(req.url, -2);
+        json(res, { ok: approvalQueue.resolve(callId, false) });
+        return true;
+      }
+
+      return false;
+    },
   });
 
   // ── Slack Config ──────────────────────────────────────────────────────────
 
-  api.registerGatewayHttpHandler("GET", `${routePrefix}/api/slack`, (_req: any, res: any) => {
-    const config = getSlackConfig(api);
-    json(res, {
-      connected: isSlackConnected(api),
-      mode: config?.mode ?? "socket",
-      hasBotToken: !!config?.botToken,
-      hasAppToken: !!config?.appToken,
-      respondToAll: config?.respondToAll ?? false,
-    });
-  });
+  api.registerHttpRoute({
+    path: `${routePrefix}/api/slack`,
+    auth: "plugin",
+    match: "prefix",
+    handler: async (req: any, res: any) => {
+      const relPath = req.url.split("?")[0].replace(`${routePrefix}/api/slack`, "") || "/";
 
-  api.registerGatewayHttpHandler("POST", `${routePrefix}/api/slack/connect`, async (req: any, res: any) => {
-    const { botToken, appToken, mode = "socket" } = JSON.parse(await readBody(req));
-    if (!botToken) { json(res, { ok: false, error: "botToken required" }, 400); return; }
-    if (mode === "socket" && !appToken) { json(res, { ok: false, error: "appToken required for socket mode" }, 400); return; }
-    await saveSlackConfig(api, {
-      enabled: true, mode, botToken,
-      ...(mode === "socket" ? { appToken } : { signingSecret: "", webhookPath: "/slack/events" }),
-      groupPolicy: "allowlist",
-    });
-    json(res, { ok: true, message: "Slack connected. Restart gateway to apply." });
-  });
+      // GET /api/slack — connection status
+      if (req.method === "GET" && (relPath === "/" || relPath === "")) {
+        const config = getSlackConfig(api);
+        json(res, {
+          connected: isSlackConnected(api),
+          mode: config?.mode ?? "socket",
+          hasBotToken: !!config?.botToken,
+          hasAppToken: !!config?.appToken,
+          respondToAll: config?.respondToAll ?? false,
+        });
+        return true;
+      }
 
-  api.registerGatewayHttpHandler("POST", `${routePrefix}/api/slack/disconnect`, async (_req: any, res: any) => {
-    await disconnectSlack(api);
-    json(res, { ok: true });
-  });
+      // POST /api/slack/connect
+      if (req.method === "POST" && relPath === "/connect") {
+        const { botToken, appToken, mode = "socket" } = JSON.parse(await readBody(req));
+        if (!botToken) { json(res, { ok: false, error: "botToken required" }, 400); return true; }
+        if (mode === "socket" && !appToken) { json(res, { ok: false, error: "appToken required for socket mode" }, 400); return true; }
+        await saveSlackConfig(api, {
+          enabled: true, mode, botToken,
+          ...(mode === "socket" ? { appToken } : { signingSecret: "", webhookPath: "/slack/events" }),
+          groupPolicy: "allowlist",
+        });
+        json(res, { ok: true, message: "Slack connected. Restart gateway to apply." });
+        return true;
+      }
 
-  api.registerGatewayHttpHandler("PATCH", `${routePrefix}/api/slack/settings`, async (req: any, res: any) => {
-    const body = JSON.parse(await readBody(req));
-    const current = getSlackConfig(api) ?? { enabled: true, mode: "socket" as const };
-    await saveSlackConfig(api, { ...current, ...body });
-    json(res, { ok: true });
+      // POST /api/slack/disconnect
+      if (req.method === "POST" && relPath === "/disconnect") {
+        await disconnectSlack(api);
+        json(res, { ok: true });
+        return true;
+      }
+
+      // PATCH /api/slack/settings
+      if (req.method === "PATCH" && relPath === "/settings") {
+        const body = JSON.parse(await readBody(req));
+        const current = getSlackConfig(api) ?? { enabled: true, mode: "socket" as const };
+        await saveSlackConfig(api, { ...current, ...body });
+        json(res, { ok: true });
+        return true;
+      }
+
+      return false;
+    },
   });
 }
 
