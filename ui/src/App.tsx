@@ -1,6 +1,7 @@
 import { useState, useEffect, Component } from "react";
 import type { ReactNode, ErrorInfo } from "react";
 import { CopilotKit } from "@copilotkit/react-core";
+import { HttpAgent } from "@ag-ui/client";
 import SetupWizard from "./screens/SetupWizard";
 import LiveFeed from "./screens/LiveFeed";
 import SlackSettings from "./screens/SlackSettings";
@@ -39,8 +40,12 @@ export default function App() {
         {connected && screen === "feed"     && (
           <AgentErrorBoundary>
             <CopilotKit
-              runtimeUrl={CLAWG_AI_URL}
-              headers={{ Authorization: `Bearer ${DEVICE_TOKEN}` }}
+              agents__unsafe_dev_only={{
+                default: new HttpAgent({
+                  url: CLAWG_AI_URL,
+                  headers: { Authorization: `Bearer ${DEVICE_TOKEN}` },
+                }),
+              }}
             >
               <LiveFeed />
             </CopilotKit>
