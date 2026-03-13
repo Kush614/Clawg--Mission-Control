@@ -1,35 +1,15 @@
 // Agent event stream comes from CopilotKit (clawg-ui).
 // Approval queue comes from this plugin's REST API.
 
-import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { useApprovals } from "../hooks/useApprovals";
 import ApprovalCard from "../components/ApprovalCard";
-import ActionCard from "../components/ActionCard";
-import { useState } from "react";
 
 export default function LiveFeed() {
   const { approvals, resolve } = useApprovals();
-  const [events, setEvents] = useState<any[]>([]);
 
-  // useCoAgentStateRender lets us observe agent state changes from clawg-ui
-  useCoAgentStateRender({
-    name: "main",
-    render: ({ state, nodeName, status }) => {
-      // Capture tool call events as they stream through CopilotKit
-      if (nodeName && status) {
-        setEvents((prev) => [
-          ...prev.slice(-200),
-          { type: "AGENT_STATE", nodeName, status, state, timestamp: Date.now() },
-        ]);
-      }
-      return null;
-    },
-  });
-
-  const agentRunning = approvals.length > 0 ||
-    events.at(-1)?.status === "inProgress";
+  const agentRunning = approvals.length > 0;
 
   return (
     <div className="h-full flex">
