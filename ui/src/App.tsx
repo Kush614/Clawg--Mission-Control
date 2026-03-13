@@ -40,6 +40,7 @@ export default function App() {
         {connected && screen === "feed"     && (
           <AgentErrorBoundary>
             <CopilotKit
+              runtimeUrl="/unused"
               agents__unsafe_dev_only={{
                 default: new HttpAgent({
                   url: CLAWG_AI_URL,
