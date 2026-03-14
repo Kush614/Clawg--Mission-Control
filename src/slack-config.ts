@@ -27,15 +27,11 @@ export function isSlackConnected(api: any): boolean {
 
 export async function saveSlackConfig(api: any, slack: SlackConfig): Promise<void> {
   const raw = api.runtime?.config?.loadConfig?.();
-  if (!raw) {
-    api.logger?.warn("[mission-control] saveSlackConfig: loadConfig() returned falsy");
-    return;
-  }
+  if (!raw) return;
   // Deep clone to avoid mutating a frozen config object
   const full = JSON.parse(JSON.stringify(raw));
   if (!full.channels) full.channels = {};
   full.channels.slack = { ...full.channels.slack, ...slack };
-  api.logger?.info("[mission-control] saveSlackConfig: writing channels.slack");
   await api.runtime.config.writeConfigFile(full);
 }
 
