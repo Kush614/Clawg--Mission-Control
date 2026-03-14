@@ -5,8 +5,9 @@ export interface SlackConfig {
   appToken?: string;
   signingSecret?: string;
   webhookPath?: string;
-  respondToAll?: boolean;
+  requireMention?: boolean;
   groupPolicy?: string;
+  dmPolicy?: string;
 }
 
 export const REQUIRED_SCOPES = [

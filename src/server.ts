@@ -128,7 +128,7 @@ export function registerRoutes(
           mode: config?.mode ?? "socket",
           hasBotToken: !!config?.botToken,
           hasAppToken: !!config?.appToken,
-          respondToAll: config?.respondToAll ?? false,
+          respondToAll: config?.requireMention === false,
         });
         return true;
       }
@@ -162,8 +162,15 @@ export function registerRoutes(
       // PATCH /api/slack/settings
       if (req.method === "PATCH" && relPath === "/settings") {
         const body = JSON.parse(await readBody(req));
-        const current = getSlackConfig(api) ?? { enabled: true, mode: "socket" as const };
-        await saveSlackConfig(api, { ...current, ...body });
+        // Translate UI's respondToAll → OpenClaw's requireMention
+        const patch: Record<string, any> = {};
+        if ("respondToAll" in body) {
+          patch.requireMention = !body.respondToAll;
+        }
+        if (Object.keys(patch).length > 0) {
+          const current = getSlackConfig(api) ?? { enabled: true, mode: "socket" as const };
+          await saveSlackConfig(api, { ...current, ...patch });
+        }
         json(res, { ok: true });
         return true;
       }
