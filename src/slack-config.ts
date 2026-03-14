@@ -15,16 +15,9 @@ export const REQUIRED_SCOPES = [
   "app_mentions:read", "connections:write",
 ];
 
-function getPluginConfig(api: any): Record<string, any> | null {
-  const full = api.runtime?.config?.loadConfig?.();
-  const id = api.id ?? "mission-control";
-  return full?.plugins?.entries?.[id]?.config ?? null;
-}
-
 export function getSlackConfig(api: any): SlackConfig | null {
-  const cfg = getPluginConfig(api);
-  if (!cfg || typeof cfg !== "object") return null;
-  return (cfg.slack as SlackConfig) ?? null;
+  const full = api.runtime?.config?.loadConfig?.();
+  return full?.channels?.slack ?? null;
 }
 
 export function isSlackConnected(api: any): boolean {
@@ -35,15 +28,16 @@ export function isSlackConnected(api: any): boolean {
 export async function saveSlackConfig(api: any, slack: SlackConfig): Promise<void> {
   const full = api.runtime?.config?.loadConfig?.();
   if (!full) return;
-  const id = api.id ?? "mission-control";
-  if (!full.plugins) full.plugins = {};
-  if (!full.plugins.entries) full.plugins.entries = {};
-  if (!full.plugins.entries[id]) full.plugins.entries[id] = {};
-  full.plugins.entries[id].config = { ...full.plugins.entries[id].config, slack };
+  if (!full.channels) full.channels = {};
+  full.channels.slack = { ...full.channels.slack, ...slack };
   await api.runtime.config.writeConfigFile(full);
 }
 
 export async function disconnectSlack(api: any): Promise<void> {
-  const current = getSlackConfig(api) ?? {} as any;
-  await saveSlackConfig(api, { ...current, enabled: false });
+  const full = api.runtime?.config?.loadConfig?.();
+  if (!full) return;
+  if (full.channels?.slack) {
+    full.channels.slack.enabled = false;
+    await api.runtime.config.writeConfigFile(full);
+  }
 }
