@@ -15,13 +15,16 @@ export const REQUIRED_SCOPES = [
   "app_mentions:read", "connections:write",
 ];
 
+function getPluginConfig(api: any): Record<string, any> | null {
+  const full = api.runtime?.config?.loadConfig?.();
+  const id = api.id ?? "mission-control";
+  return full?.plugins?.entries?.[id]?.config ?? null;
+}
+
 export function getSlackConfig(api: any): SlackConfig | null {
-  const cfg = api.runtime?.config?.loadConfig?.();
+  const cfg = getPluginConfig(api);
   if (!cfg || typeof cfg !== "object") return null;
-  // Plugin config stores slack settings at the top level
-  if (cfg.botToken !== undefined || cfg.enabled !== undefined) return cfg as SlackConfig;
-  // Fallback: check legacy nested path
-  return (cfg as any)?.channels?.slack ?? null;
+  return (cfg.slack as SlackConfig) ?? null;
 }
 
 export function isSlackConnected(api: any): boolean {
@@ -30,10 +33,17 @@ export function isSlackConnected(api: any): boolean {
 }
 
 export async function saveSlackConfig(api: any, slack: SlackConfig): Promise<void> {
-  await api.runtime?.config?.writeConfigFile?.(slack);
+  const full = api.runtime?.config?.loadConfig?.();
+  if (!full) return;
+  const id = api.id ?? "mission-control";
+  if (!full.plugins) full.plugins = {};
+  if (!full.plugins.entries) full.plugins.entries = {};
+  if (!full.plugins.entries[id]) full.plugins.entries[id] = {};
+  full.plugins.entries[id].config = { ...full.plugins.entries[id].config, slack };
+  await api.runtime.config.writeConfigFile(full);
 }
 
 export async function disconnectSlack(api: any): Promise<void> {
-  const current = getSlackConfig(api) ?? {};
-  await api.runtime?.config?.writeConfigFile?.({ ...current, enabled: false });
+  const current = getSlackConfig(api) ?? {} as any;
+  await saveSlackConfig(api, { ...current, enabled: false });
 }
