@@ -138,12 +138,17 @@ export function registerRoutes(
         const { botToken, appToken, mode = "socket" } = JSON.parse(await readBody(req));
         if (!botToken) { json(res, { ok: false, error: "botToken required" }, 400); return true; }
         if (mode === "socket" && !appToken) { json(res, { ok: false, error: "appToken required for socket mode" }, 400); return true; }
-        await saveSlackConfig(api, {
-          enabled: true, mode, botToken,
-          ...(mode === "socket" ? { appToken } : { signingSecret: "", webhookPath: "/slack/events" }),
-          groupPolicy: "allowlist",
-        });
-        json(res, { ok: true, message: "Slack connected. Restart gateway to apply." });
+        try {
+          await saveSlackConfig(api, {
+            enabled: true, mode, botToken,
+            ...(mode === "socket" ? { appToken } : { signingSecret: "", webhookPath: "/slack/events" }),
+            groupPolicy: "allowlist",
+          });
+          json(res, { ok: true, message: "Slack connected. Restart gateway to apply." });
+        } catch (err: any) {
+          api.logger?.error("[mission-control] saveSlackConfig error:", err);
+          json(res, { ok: false, error: err.message ?? "Failed to save config" }, 500);
+        }
         return true;
       }
 
