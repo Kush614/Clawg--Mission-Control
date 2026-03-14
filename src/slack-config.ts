@@ -16,7 +16,12 @@ export const REQUIRED_SCOPES = [
 ];
 
 export function getSlackConfig(api: any): SlackConfig | null {
-  return api.getConfig?.()?.channels?.slack ?? null;
+  const cfg = api.runtime?.config?.loadConfig?.();
+  if (!cfg || typeof cfg !== "object") return null;
+  // Plugin config stores slack settings at the top level
+  if (cfg.botToken !== undefined || cfg.enabled !== undefined) return cfg as SlackConfig;
+  // Fallback: check legacy nested path
+  return (cfg as any)?.channels?.slack ?? null;
 }
 
 export function isSlackConnected(api: any): boolean {
@@ -25,9 +30,10 @@ export function isSlackConnected(api: any): boolean {
 }
 
 export async function saveSlackConfig(api: any, slack: SlackConfig): Promise<void> {
-  await api.patchConfig?.({ channels: { slack: slack } });
+  await api.runtime?.config?.writeConfigFile?.(slack);
 }
 
 export async function disconnectSlack(api: any): Promise<void> {
-  await api.patchConfig?.({ channels: { slack: { enabled: false } } });
+  const current = getSlackConfig(api) ?? {};
+  await api.runtime?.config?.writeConfigFile?.({ ...current, enabled: false });
 }
