@@ -5,12 +5,14 @@ import { useCoAgent, useCoAgentStateRender } from "@copilotkit/react-core";
 import { CopilotChat } from "@copilotkit/react-ui";
 import "@copilotkit/react-ui/styles.css";
 import { useApprovals } from "../hooks/useApprovals";
+import { useApprovalContext } from "../hooks/useApprovalContext";
 import ApprovalCard from "../components/ApprovalCard";
 import ActionCard from "../components/ActionCard";
 import { useState } from "react";
 
 export default function LiveFeed() {
   const { approvals, resolve } = useApprovals();
+  useApprovalContext(approvals);
   const [events, setEvents] = useState<any[]>([]);
 
   // useCoAgentStateRender lets us observe agent state changes from clawg-ui
