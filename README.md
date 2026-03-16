@@ -10,6 +10,10 @@ Visual Mission Control dashboard for [OpenClaw](https://openclaw.ai) — Slack s
 - **Slack Setup Wizard** — 4-step guided flow to connect OpenClaw to a Slack workspace, no config file editing required
 - **Slack Settings** — toggle respond-to-all vs. mention-only mode, disconnect
 
+## Auditor agent soul
+
+[SOUL.md](SOUL.md) is an OpenClaw "soul" file for an **Auditor** agent. When loaded as a soul, it instructs the agent to proactively surface pending approvals, provide risk assessments, and recommend approve/block decisions — all using the approval context that this plugin shares with the chat agent. Pair it with the **Approval Context for Agent** feature for a fully contextual security review workflow.
+
 ## Architecture
 
 ```
