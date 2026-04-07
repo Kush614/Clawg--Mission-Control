@@ -1,6 +1,9 @@
 {
   "name": "Clawg Mission Control",
   "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "features": {
+    "ghcr.io/devcontainers/features/sshd:1": { "version": "latest" }
+  },
   "forwardPorts": [3000, 5173, 18789],
   "portsAttributes": {
     "3000": { "label": "Mission Control UI", "onAutoForward": "notify", "visibility": "public" },
