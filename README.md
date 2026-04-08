@@ -6,8 +6,13 @@ Visual Mission Control dashboard for [OpenClaw](https://openclaw.ai) — Slack s
 
 - **Live Feed** — streams all agent messages and tool calls in real time via [CopilotKit](https://copilotkit.ai) + [`clawg-ui`](https://github.com/contextablemark/clawg-ui)
 - **Approval Rail** — intercepts risky tool calls (bash, file writes, email, etc.) and pauses execution until you approve or block them from the UI
+- **Approval Context for Agent** — the chat agent can see pending approvals and discuss them with you, offering risk assessments and recommendations before you approve or block
 - **Slack Setup Wizard** — 4-step guided flow to connect OpenClaw to a Slack workspace, no config file editing required
 - **Slack Settings** — toggle respond-to-all vs. mention-only mode, disconnect
+
+## Auditor agent soul
+
+[SOUL.md](SOUL.md) is an OpenClaw "soul" file for an **Auditor** agent. When loaded as a soul, it instructs the agent to proactively surface pending approvals, provide risk assessments, and recommend approve/block decisions — all using the approval context that this plugin shares with the chat agent. Pair it with the **Approval Context for Agent** feature for a fully contextual security review workflow.
 
 ## Architecture
 
@@ -93,6 +98,7 @@ clawg-mission-control/
         ├── config.ts
         ├── lib/api.ts
         ├── hooks/useApprovals.ts
+        ├── hooks/useApprovalContext.ts
         ├── components/
         │   ├── ApprovalCard.tsx
         │   ├── ActionCard.tsx
