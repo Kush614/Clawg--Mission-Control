@@ -4,24 +4,30 @@ import { approvalQueue, RISKY_TOOLS } from "./src/approval-queue.js";
 
 export default function register(api: any) {
   api.logger.info("[mission-control] Loading...");
-  const routePrefix = api.config?.routePrefix ?? "/mission-control";
+  const routePrefix = api.pluginConfig?.routePrefix ?? "/mission-control";
 
   // Hook into tool calls for the approval queue
   // Agent event streaming (messages, tool calls) is handled by clawg-ui/CopilotKit
-  if (api.hooks) {
-    api.hooks.on("tool:before", async (ctx: any) => {
-      const { toolName, args, callId } = ctx;
+  api.on(
+    "before_tool_call",
+    async (event: any) => {
+      const toolName = event.toolName;
       if (RISKY_TOOLS.has(toolName?.toLowerCase())) {
-        const approved = await approvalQueue.request(callId, toolName, args);
-        if (!approved) return { abort: true, reason: "Blocked by Mission Control." };
+        const approved = await approvalQueue.request(event.toolCallId, toolName, event.params);
+        if (!approved) return { block: true, blockReason: "Blocked by Mission Control." };
       }
-    });
+    },
+    { priority: 10 },
+  );
 
-    api.hooks.on("tool:after", (ctx: any) => {
+  api.on(
+    "after_tool_call",
+    (event: any) => {
       // Resolve any lingering approval entries
-      approvalQueue.resolve(ctx.callId, true);
-    });
-  }
+      approvalQueue.resolve(event.toolCallId, true);
+    },
+    { priority: 10 },
+  );
 
   registerRoutes(api, { routePrefix, eventBus });
 

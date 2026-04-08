@@ -5,8 +5,9 @@ export interface SlackConfig {
   appToken?: string;
   signingSecret?: string;
   webhookPath?: string;
-  respondToAll?: boolean;
+  requireMention?: boolean;
   groupPolicy?: string;
+  dmPolicy?: string;
 }
 
 export const REQUIRED_SCOPES = [
@@ -16,7 +17,8 @@ export const REQUIRED_SCOPES = [
 ];
 
 export function getSlackConfig(api: any): SlackConfig | null {
-  return api.getConfig?.()?.channels?.slack ?? null;
+  const full = api.runtime?.config?.loadConfig?.();
+  return full?.channels?.slack ?? null;
 }
 
 export function isSlackConnected(api: any): boolean {
@@ -25,9 +27,21 @@ export function isSlackConnected(api: any): boolean {
 }
 
 export async function saveSlackConfig(api: any, slack: SlackConfig): Promise<void> {
-  await api.patchConfig?.({ channels: { slack: slack } });
+  const raw = api.runtime?.config?.loadConfig?.();
+  if (!raw) return;
+  // Deep clone to avoid mutating a frozen config object
+  const full = JSON.parse(JSON.stringify(raw));
+  if (!full.channels) full.channels = {};
+  full.channels.slack = { ...full.channels.slack, ...slack };
+  await api.runtime.config.writeConfigFile(full);
 }
 
 export async function disconnectSlack(api: any): Promise<void> {
-  await api.patchConfig?.({ channels: { slack: { enabled: false } } });
+  const raw = api.runtime?.config?.loadConfig?.();
+  if (!raw) return;
+  const full = JSON.parse(JSON.stringify(raw));
+  if (full.channels?.slack) {
+    full.channels.slack.enabled = false;
+    await api.runtime.config.writeConfigFile(full);
+  }
 }

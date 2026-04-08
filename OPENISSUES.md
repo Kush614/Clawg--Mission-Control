@@ -2,6 +2,19 @@
 
 Known issues carried forward from the initial build. These were identified during spec review and deferred for a spec-exact first pass.
 
+## Resolved — OpenClaw 2026.3.2 Migration (`fix/migrate-to-registerHttpRoute`)
+
+The following breaking changes were identified and fixed:
+
+- **`api.registerGatewayHttpHandler` removed** — migrated to `api.registerHttpRoute({ path, auth, match, handler })`
+- **Hooks API changed** — `api.hooks.on("tool:before/after")` → `api.on("before_tool_call/after_tool_call")` with return shape `{ block, blockReason }` instead of `{ abort, reason }`
+- **Event field rename** — `event.callId` → `event.toolCallId` (was causing approval queue to store entries with key `undefined`)
+- **Config API changed** — `api.getConfig()/patchConfig()` → `api.runtime.config.loadConfig()/writeConfigFile()`. Note: `loadConfig()` returns a frozen object; must deep clone before mutation.
+- **Slack config location** — belongs at `channels.slack` in the top-level OpenClawConfig, not inside the plugin's own config section
+- **Plugin config access** — `api.config` → `api.pluginConfig`
+- **CopilotKit → clawg-ui connection** — `runtimeUrl` triggers CopilotRuntime RPC protocol (with /info discovery). Replaced with `agents__unsafe_dev_only` + `HttpAgent` from `@ag-ui/client` for direct AG-UI communication.
+- **Package name mismatch** — `package.json` name didn't match `openclaw.plugin.json` id
+
 ---
 
 ## Bugs / Broken Features
@@ -44,10 +57,11 @@ All HTTP handlers set `Access-Control-Allow-Origin: *`. This is fine during deve
 
 The `<script src="https://cdn.tailwindcss.com">` CDN approach means no tree-shaking (full Tailwind ships to the browser), an external network dependency at runtime, and a broken UI in offline/air-gapped environments. Replace with `tailwindcss` + `@tailwindcss/vite` (or PostCSS) as dev dependencies so Vite handles it at build time.
 
-### 7. CopilotKit packages pinned to `latest`
+### ~~7. CopilotKit packages pinned to `latest`~~ — RESOLVED
 **File:** `ui/package.json`
 
-`"@copilotkit/react-core": "latest"` and `"@copilotkit/react-ui": "latest"` will silently pull breaking changes on the next `npm install` after a major release. Pin to a specific version range (e.g. `^1.x.x`) and upgrade intentionally.
+~~`"@copilotkit/react-core": "latest"` and `"@copilotkit/react-ui": "latest"` will silently pull breaking changes.~~
+Pinned to `1.51.4` in the `fix/migrate-to-registerHttpRoute` branch.
 
 ### 8. `zod` declared as a dependency but never used
 **File:** `package.json` (plugin root)
@@ -58,6 +72,8 @@ The `<script src="https://cdn.tailwindcss.com">` CDN approach means no tree-shak
 **File:** `ui/src/config.ts`
 
 `VITE_CLAWG_AI_DEVICE_TOKEN ?? ""` means a missing token produces a `Bearer ` header with no value, causing silent auth failures against `clawg-ui`. Should log a console warning or display a setup prompt when the token is absent.
+
+Note: `envDir: ".."` was added to `vite.config.ts` so Vite correctly reads `.env` from the repo root, which was the main cause of empty tokens in practice.
 
 ---
 
